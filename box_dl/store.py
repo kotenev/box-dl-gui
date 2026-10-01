@@ -1,9 +1,8 @@
 """Save-directory persistence, filename sanitising, collision-free paths."""
 
-from __future__ import annotations
-
 import re
 from pathlib import Path
+from typing import Union
 
 from platformdirs import user_config_path
 
@@ -43,7 +42,7 @@ def load_last_dir() -> Path:
     return Path.home() / "Downloads"
 
 
-def save_last_dir(directory: Path | str) -> None:
+def save_last_dir(directory: Union[Path, str]) -> None:
     """Persist the save dir (best effort -- never raises)."""
     try:
         cfg = _config_file()
@@ -61,7 +60,7 @@ def sanitize_filename(name: str, fallback: str = "download") -> str:
     return cleaned or fallback
 
 
-def unique_path(path: Path | str) -> Path:
+def unique_path(path: Union[Path, str]) -> Path:
     """Return ``path`` or the first free ``name(1).ext`` sibling.
 
     Fixes the old regex version which only handled single-digit suffixes

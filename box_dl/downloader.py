@@ -1,13 +1,12 @@
 """Streaming file download via httpx (replaces raw urllib3)."""
 
-from __future__ import annotations
-
 from pathlib import Path
+from typing import Union
 
 import httpx
 
 
-def download_file(url: str, dest: Path | str, timeout: float = 60.0) -> Path:
+def download_file(url: str, dest: Union[Path, str], timeout: float = 60.0) -> Path:
     """Stream ``url`` to ``dest`` (creating parent dirs). Returns the path.
 
     Raises:

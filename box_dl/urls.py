@@ -5,8 +5,6 @@ callers testing ``is False`` misclassified bad URLs. This returns a real
 ``bool`` -- test it with truthiness.
 """
 
-from __future__ import annotations
-
 from urllib.parse import urlparse
 
 

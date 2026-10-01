@@ -6,13 +6,12 @@ undefined behaviour in Tk. Here the worker only puts :class:`JobEvent`
 messages on a queue; the GUI polls it with ``after()`` on the main thread.
 """
 
-from __future__ import annotations
-
 import logging
 import queue
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import List, Optional
 
 import httpx
 
@@ -37,13 +36,13 @@ class JobEvent:
 
 @dataclass
 class DownloadJob:
-    urls: list[str] = field(default_factory=list)
+    urls: List[str] = field(default_factory=list)
     out_dir: Path = field(default_factory=load_last_dir)
     wait_time: float = 10.0
-    browser_channel: str | None = None
+    browser_channel: Optional[str] = None
 
 
-def run_job(job: DownloadJob, events: queue.Queue[JobEvent], stop: threading.Event) -> None:
+def run_job(job: DownloadJob, events: queue.Queue, stop: threading.Event) -> None:
     """Process every URL, streaming progress into ``events``. Never raises."""
     scraper = BoxScraper(wait_time=job.wait_time, browser_channel=job.browser_channel)
     total = len(job.urls)

@@ -8,8 +8,6 @@ thread via ``after()`` polling -- the old code updated widgets directly
 from the worker thread, which is unsafe in Tk.
 """
 
-from __future__ import annotations
-
 import logging
 import platform
 import queue
@@ -17,16 +15,17 @@ import subprocess
 import threading
 from pathlib import Path
 from tkinter import filedialog, messagebox
+from typing import Optional, Union
 
 import customtkinter as ctk
 
 from .store import load_last_dir, save_last_dir
-from .worker import DownloadJob, JobEvent, run_job
+from .worker import DownloadJob, run_job
 
 log = logging.getLogger(__name__)
 
 
-def open_in_file_manager(path: Path | str) -> None:
+def open_in_file_manager(path: Union[Path, str]) -> None:
     """Reveal ``path`` in Finder / Explorer / xdg-open."""
     path = str(path)
     system = platform.system()
@@ -48,9 +47,9 @@ class App(ctk.CTk):
         self.geometry("660x640")
         self.minsize(560, 540)
 
-        self._events: queue.Queue[JobEvent] = queue.Queue()
+        self._events: queue.Queue = queue.Queue()
         self._stop = threading.Event()
-        self._worker: threading.Thread | None = None
+        self._worker: Optional[threading.Thread] = None
 
         # --- save path row ---
         save_frame = ctk.CTkFrame(self)
@@ -174,7 +173,7 @@ class App(ctk.CTk):
             pass
         self.after(150, self._poll)
 
-    def _handle_event(self, event: JobEvent) -> None:
+    def _handle_event(self, event):
         if event.total:
             try:
                 self._progress.set(event.done / max(event.total, 1))

@@ -1,12 +1,11 @@
 """Unit tests for the box_dl package (stdlib only: `python -m unittest`)."""
 
-from __future__ import annotations
-
 import queue
 import threading
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import List
 
 from box_dl.scraper import _is_preview_url, clean_title
 from box_dl.store import sanitize_filename, unique_path
@@ -70,7 +69,7 @@ class TestWorker(unittest.TestCase):
         from box_dl.scraper import ScrapedFile
 
         class FakeScraper:
-            def __init__(self, *a: object, **k: object) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 pass
 
             def fetch(self, url: str) -> ScrapedFile:
@@ -78,7 +77,7 @@ class TestWorker(unittest.TestCase):
                     return ScrapedFile(title="x", download_url=None)
                 return ScrapedFile(title="Doc", download_url="http://x/f.pdf")
 
-        saved: list[Path] = []
+        saved: List[Path] = []
 
         def fake_download(url: str, dest: Path) -> Path:
             Path(dest).write_bytes(b"pdf")
@@ -86,7 +85,8 @@ class TestWorker(unittest.TestCase):
             return Path(dest)
 
         orig_scraper, orig_dl = worker.BoxScraper, worker.download_file
-        worker.BoxScraper, worker.download_file = FakeScraper, fake_download  # type: ignore[assignment]
+        worker.BoxScraper = FakeScraper  # type: ignore[assignment,misc]
+        worker.download_file = fake_download  # type: ignore[assignment,misc]
         try:
             with TemporaryDirectory() as td:
                 job = worker.DownloadJob(
@@ -99,7 +99,8 @@ class TestWorker(unittest.TestCase):
                 while not events.empty():
                     kinds.append(events.get().kind)
         finally:
-            worker.BoxScraper, worker.download_file = orig_scraper, orig_dl
+            worker.BoxScraper = orig_scraper  # type: ignore[assignment,misc]
+            worker.download_file = orig_dl  # type: ignore[assignment,misc]
         self.assertIn("file_done", kinds)
         self.assertEqual(kinds.count("file_error"), 2)  # invalid URL + no preview
         self.assertEqual(kinds[-1], "finished")

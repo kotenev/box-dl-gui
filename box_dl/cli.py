@@ -5,8 +5,6 @@ Usage:
                          [--use-chrome] [--open] [-v]
 """
 
-from __future__ import annotations
-
 import argparse
 import logging
 import queue
@@ -14,6 +12,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+from typing import List, Optional
 
 from .store import load_last_dir
 from .worker import DownloadJob, run_job
@@ -40,7 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)
@@ -60,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         browser_channel="chrome" if args.use_chrome else None,
     )
     failures = 0
-    saved: list[str] = []
+    saved: List[str] = []
 
     worker = threading.Thread(target=run_job, args=(job, events, stop), daemon=True)
     worker.start()

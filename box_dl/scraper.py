@@ -13,11 +13,10 @@ match. A fixed ``wait_time`` is still needed -- the preview request fires
 asynchronously after page load, so don't shorten it blindly.
 """
 
-from __future__ import annotations
-
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import List, Optional
 
 from .store import sanitize_filename
 from .urls import is_box_url
@@ -53,7 +52,7 @@ def clean_title(raw_title: str) -> str:
 @dataclass(frozen=True)
 class ScrapedFile:
     title: str
-    download_url: str | None
+    download_url: Optional[str]
 
 
 class BoxScraper:
@@ -63,7 +62,7 @@ class BoxScraper:
         self,
         wait_time: float = 10.0,
         headless: bool = True,
-        browser_channel: str | None = None,
+        browser_channel: Optional[str] = None,
         navigation_timeout_ms: int = 45_000,
     ) -> None:
         self.wait_time = wait_time
@@ -77,7 +76,7 @@ class BoxScraper:
             raise ValueError(f"Not a Box shared URL: {url!r}")
         from playwright.sync_api import sync_playwright
 
-        seen: list[str] = []
+        seen: List[str] = []
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(
                 headless=self.headless,
@@ -103,14 +102,14 @@ class BoxScraper:
                     log.debug("networkidle not reached, continuing with fixed wait")
                 page.wait_for_timeout(int(self.wait_time * 1000))
                 raw_title = page.title()
-                entries: list[str] = page.evaluate(
+                entries: List[str] = page.evaluate(
                     "() => (window.performance.getEntries() || [])"
                     ".map(e => e.name).filter(n => typeof n === 'string')"
                 )
             finally:
                 browser.close()
 
-        download_url: str | None = None
+        download_url: Optional[str] = None
         for candidate in list(reversed(seen)) + list(reversed(entries)):
             if _is_preview_url(candidate):
                 download_url = candidate
