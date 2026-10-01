@@ -1,41 +1,56 @@
-# Box.com PDF Downloader GUI
+# Box.com PDF Downloader (modern, macOS-first)
 
-This application can scrape and download protected docx, pdf files in box.com and save it as an editable PDF file. This repo is forked from [lfasmpao's](https://github.com/lfasmpao/box.com-downloader) box.com downloader.
+Downloads protected box.com shared files as PDF. Rewritten from the legacy
+Tkinter + Selenium stack to **CustomTkinter + Playwright + httpx** (Python ≥ 3.10).
 
-![Screenshot](https://github.com/aebibtech/box-dl-gui/blob/master/screenshot.png?raw=true)
+![Screenshot](screenshot.png)
 
-### Installation
+## Quick start (macOS)
 
-This app requires [Python 3](https://python.org/), [Google Chrome](https://chrome.google.com), and Selenium Chrome Web Driver to run.
-
-Clone the repository and install the dependencies.
-
-```cmd
-git clone https://github.com/aebibtech/box.com-downloader
-cd box.com-downloader
-call setup.cmd
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt        # or: pip install -e .
+python -m playwright install chromium  # bundled browser (no chromedriver!)
+python app.py                          # GUI  — or: python -m box_dl
 ```
 
-### Usage
-1. Run `BoxGUI.cmd` from the Folder.
-2. (Optional) You can also create a shortcut of it on the Desktop.
-3. Paste box.com links on the space provided, separated by space or new line.
-4. Press **Download**.
+Prefer your installed Google Chrome over the bundled Chromium? Either install
+it normally, or tick **"Use installed Chrome"** in the GUI / pass `--use-chrome` to the CLI.
 
-### Development
+## Usage
 
-Want to contribute? Great!
-Make a change in your file and instantanously see your updates!
+GUI: paste box.com links (space or newline separated) → **Download**.
+Per-file progress, cancellable, log at the bottom; save folder is remembered.
 
-### Todos
- - Write Tests
- - Parallel Downloads
- - Table View for Links
- - Checkout the source code to know more
+```bash
+python -m box_dl.cli URL [URL ...] [--out ~/Downloads] [--wait-time 10] [--use-chrome] [--open] [-v]
+```
 
-### Did you find this useful?
-[![ko-fi](https://www.ko-fi.com/img/donate_sm.png)](https://ko-fi.com/aebibtech)
+Installed (`pip install -e .`) shortcuts: `box-dl-gui` (GUI), `box-dl` (CLI).
 
-License
-----
-GNU General Public License v3.0
+## Layout
+
+- `app.py` — GUI launcher (`python app.py`).
+- `box_dl/app.py` — CustomTkinter GUI, follows macOS light/dark mode.
+- `box_dl/cli.py` — `box-dl` CLI, multiple URLs, exit 1 on any failure.
+- `box_dl/scraper.py` — `BoxScraper.fetch(url)` via Playwright: watches live
+  responses for `*.boxcloud.com/...content?preview=true` (or `internal_files…pdf`)
+  with a `window.performance.getEntries()` fallback.
+- `box_dl/worker.py` — background `run_job()` → Tk-safe `JobEvent` queue.
+- `box_dl/downloader.py` — streaming `download_file()` via httpx.
+- `box_dl/store.py` — save-dir persistence, filename sanitising,
+  collision-free `name(1).pdf` paths.
+- `box_dl/urls.py` — `is_box_url()` validation.
+- `tests/` — `python -m unittest discover -s tests`.
+
+## Notes / gotchas
+
+- The Box preview request fires asynchronously after page load: `--wait-time`
+  (default 10 s) is a real requirement, not a tunable delay — don't shorten blindly.
+- Save dir is stored via `platformdirs` (`~/Library/Application Support/box-dl-gui/…`
+  on macOS); the legacy `~/.lastsavepath` file is still read as fallback.
+- Existing files are never overwritten: `report.pdf` → `report(1).pdf`.
+- Legacy files (`gui.py`, `gui.pyw`, `main.py`, `scraper.py`, `downloader.py`,
+  `*.cmd`, old `requirements.txt` entries) are kept for reference but no longer used.
+
+License: GNU General Public License v3.0

@@ -104,3 +104,8 @@ venv.bak/
 # mypy
 .mypy_cache/
 .DS_Store
+
+# Modern rewrite artifacts
+.venv/
+lastsavepath.txt
+dl_files/

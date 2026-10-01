@@ -1,22 +1,21 @@
 # AGENTS.md
 
-Small Windows-first Tkinter + Selenium scraper. No tests, lint, typecheck, CI, or build.
+Modern CustomTkinter + Playwright + httpx app (Python ≥ 3.10, macOS-first). Legacy
+Tkinter/Selenium files (`gui.py`, `gui.pyw`, `main.py`, `scraper.py`, `downloader.py`,
+`*.cmd`) are kept for reference only — do not extend them.
 
 ## Entrypoints
-- `gui.pyw` — canonical GUI (`BoxGUIApp`). Launched via `BoxGUI.cmd` (`start pythonw gui.pyw`). Prefer over `gui.py` (legacy procedural duplicate, no `validate_outfile_name`, no chromedriver existence check).
-- `main.py` — CLI: `python main.py <box-url> [--driver-path PATH] [--wait-time 15] [--use-x11] [--out DIR/]`.
-- `scraper.py` — `Scraper` + `url_checker`; `downloader.py` — `download_file(url, path)` via `urllib3`.
+- `app.py` → `box_dl/app.py:main` (`App`, CustomTkinter). Also `python -m box_dl`, or installed `box-dl-gui`.
+- `box_dl/cli.py:main` (`box-dl`): `URL [URL ...] [--out DIR] [--wait-time 10] [--use-chrome] [--open] [-v]`; exit 1 if any URL failed.
+- `box_dl/scraper.py:BoxScraper.fetch(url)`; `box_dl/worker.py:run_job(job, events, stop)`; `box_dl/downloader.py:download_file(url, dest)`; `box_dl/urls.py:is_box_url()`; `box_dl/store.py` (persistence, sanitize, `unique_path`).
 
 ## Setup
-- `pip install -r requirements.txt` (`selenium`, `sv_ttk`, `PyVirtualDisplay`). Windows bootstrap: `setup.cmd` (global pip) or `dev-setup.cmd` (creates/uses `venv/`).
-- Requires Google Chrome + matching chromedriver. Hardcoded lookup in `gui.pyw:173-176`: Windows `~\scoop\shims\chromedriver.exe`, Linux `/usr/bin/chromedriver`; anything else (macOS) falls through to `scraper.py:71` default `/usr/local/bin/chromedriver`. `gui.pyw` aborts with a messagebox if the path doesn't exist; `gui.py` does not check.
+- `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt` (or `pip install -e .` for `box-dl-gui` / `box-dl` shims).
+- `python -m playwright install chromium` — bundled browser, no chromedriver. `--use-chrome` / GUI switch drives installed Google Chrome via `channel="chrome"` instead.
+- Tests: `python -m unittest discover -s tests` (stdlib only, stubbed I/O, no network/browser).
 
 ## Gotchas
-- `scraper.py:80` uses Selenium 3-style `webdriver.Chrome(path, chrome_options=...)` — breaks on Selenium 4 (wants `service=Service(path), options=...`). The Windows branch (`service` + `CREATE_NO_WINDOW`) is the only modern call. Pin or migrate Selenium deliberately.
-- `Scraper.load_url()` is a fixed `time.sleep(wait_time)` (GUI passes 10, CLI default 15). Don't shorten blindly; the preview URL is scraped from `window.performance.getEntries()` in `get_download_url()`.
-- `url_checker()` regex is `https://(.*)\.box\.com/(.*)` and returns `None` (not `False`) on mismatch — test truthiness, not `is False` (`main.py:41` does this wrong for non-matching URLs that aren't exactly `False`).
-- `get_download_title()` parses `driver.title` by splitting on `|` and `.` — fragile if Box changes title format; `get_download_url()` returns `None` when no `boxcloud.com/...content?preview=true` or `internal_files...pdf` entry is found.
-- GUI runs downloads on a bare `threading.Thread` to keep Tk responsive; Tk widget updates from that thread (`lbl_status.config`) are technically unsafe but relied upon — keep long work off the main thread.
-- Save path `Entry` has keypresses disabled (`bind('<Key>', ... 'break')`); change via Browse button only, persisted in `~/.lastsavepath`. Overwrite protection (`validate_outfile_name`, `file(1).pdf` style) exists only in `gui.pyw`.
-- `evt_open_fol` handles Windows/Linux only — no-op on macOS. `--use-x11` path needs XQuartz on Darwin / `Display` on Linux.
-- `downloader.py` has no error handling: if `http.request` raises/fails, `r` is `None` and `.read` crashes. `main.py` also auto-opens the PDF via `webbrowser.open` after download.
+- `wait_time` (default 10 s) is load-bearing: the Box preview fetch (`*.boxcloud.com/...content?preview=true` or `internal_files…pdf`) fires async after page load. `BoxScraper` collects live `response` URLs plus a `window.performance.getEntries()` fallback and returns the last match, or `download_url=None`.
+- `is_box_url()` returns a real `bool` (old `url_checker` returned `True`/`None`; never test `is False` on legacy code). `clean_title()` strips only the final extension (`my.report.pdf` → `my.report`); `unique_path()` handles multi-digit suffixes (`r(9).pdf` → `r(10).pdf`) without recursion.
+- Never touch Tk widgets from the worker thread: `run_job()` only puts `JobEvent`s on a queue; `App._poll()` (`after(150)`) applies them on the main thread.
+- Save dir via `platformdirs` (`~/Library/Application Support/box-dl-gui/lastsavepath.txt` on macOS), legacy `~/.lastsavepath` read as fallback. `download_file()` raises `httpx.HTTPError`/`OSError` — `run_job()` converts to `file_error` events so one bad URL never aborts the queue.
