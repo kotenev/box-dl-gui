@@ -75,11 +75,15 @@ class TestWorker(unittest.TestCase):
             def fetch(self, url: str) -> ScrapedFile:
                 if "bad" in url:
                     return ScrapedFile(title="x", download_url=None)
-                return ScrapedFile(title="Doc", download_url="http://x/f.pdf")
+                return ScrapedFile(title="Doc", download_url="http://x/f.pdf",
+                                   auth_headers={"authorization": "Bearer test"},
+                                   cookies=[{"name": "z", "value": "abc"}])
 
         saved: List[Path] = []
+        seen_kwargs: List[dict] = []
 
-        def fake_download(url: str, dest: Path) -> Path:
+        def fake_download(url: str, dest: Path, **kwargs) -> Path:
+            seen_kwargs.append(kwargs)
             Path(dest).write_bytes(b"pdf")
             saved.append(Path(dest))
             return Path(dest)
@@ -105,6 +109,11 @@ class TestWorker(unittest.TestCase):
         self.assertEqual(kinds.count("file_error"), 2)  # invalid URL + no preview
         self.assertEqual(kinds[-1], "finished")
         self.assertEqual(len(saved), 1)
+        # auth from the scrape must reach the download call
+        self.assertEqual(seen_kwargs[0].get("headers"),
+                         {"authorization": "Bearer test"})
+        self.assertEqual(seen_kwargs[0].get("cookies"),
+                         [{"name": "z", "value": "abc"}])
 
 
 if __name__ == "__main__":

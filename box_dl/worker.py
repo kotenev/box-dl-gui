@@ -78,7 +78,10 @@ def run_job(job: DownloadJob, events: queue.Queue, stop: threading.Event) -> Non
         dest = unique_path(job.out_dir / f"{scraped.title}.pdf")
         events.put(JobEvent(kind="status", message=f"{prefix} Downloading {dest.name}…"))
         try:
-            download_file(scraped.download_url, dest)
+            # Replay the browser session: the bare preview URL 401s elsewhere.
+            download_file(scraped.download_url, dest,
+                          headers=scraped.auth_headers or None,
+                          cookies=scraped.cookies or None)
         except (httpx.HTTPError, OSError) as exc:
             log.warning("download failed for %s: %s", url, exc)
             events.put(

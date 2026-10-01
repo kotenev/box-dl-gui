@@ -14,9 +14,9 @@ asynchronously after page load, so don't shorten it blindly.
 """
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from .store import sanitize_filename
 from .urls import is_box_url
@@ -53,6 +53,11 @@ def clean_title(raw_title: str) -> str:
 class ScrapedFile:
     title: str
     download_url: Optional[str]
+    # Authenticated request headers captured from the page's own preview
+    # request (Box requires the per-session ``Authorization: Bearer`` token;
+    # the URL alone returns 401 from any other client).
+    auth_headers: Dict[str, str] = field(default_factory=dict)
+    cookies: List[Dict[str, str]] = field(default_factory=list)
 
 
 class BoxScraper:
@@ -71,12 +76,39 @@ class BoxScraper:
         self.navigation_timeout_ms = navigation_timeout_ms
 
     def fetch(self, url: str) -> ScrapedFile:
-        """Load ``url`` headlessly and return title + preview URL (or None)."""
+        """Load ``url`` headlessly and return title + preview URL (or None).
+
+        Also captures the page's own preview-request auth (``Authorization``
+        header + cookies): Box rejects the bare preview URL with 401 from any
+        other client, so :mod:`box_dl.downloader` must replay them.
+        """
         if not is_box_url(url):
             raise ValueError(f"Not a Box shared URL: {url!r}")
         from playwright.sync_api import sync_playwright
 
+        # header names worth replaying (lowercased by Playwright already)
+        _AUTH_HEADER_ALLOWLIST = (
+            "authorization",
+            "x-box-client-name",
+            "x-box-client-version",
+            "referer",
+            "user-agent",
+            "sec-ch-ua",
+            "sec-ch-ua-mobile",
+            "sec-ch-ua-platform",
+        )
         seen: List[str] = []
+        auth_headers: Dict[str, str] = {}
+        seen_cookies: List[Dict[str, str]] = []
+
+        def _on_request(request) -> None:
+            if _is_preview_url(request.url) and not auth_headers:
+                headers = {k.lower(): v for k, v in request.headers.items()}
+                for name in _AUTH_HEADER_ALLOWLIST:
+                    if headers.get(name):
+                        auth_headers[name] = headers[name]
+                seen.append(request.url)
+
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(
                 headless=self.headless,
@@ -84,7 +116,9 @@ class BoxScraper:
                 channel=self.browser_channel,
             )
             try:
-                page = browser.new_page()
+                context = browser.new_context()
+                page = context.new_page()
+                page.on("request", _on_request)
                 page.on(
                     "response",
                     lambda response: seen.append(response.url)
@@ -106,6 +140,13 @@ class BoxScraper:
                     "() => (window.performance.getEntries() || [])"
                     ".map(e => e.name).filter(n => typeof n === 'string')"
                 )
+                try:
+                    seen_cookies = [
+                        {"name": c["name"], "value": c["value"]}
+                        for c in context.cookies()
+                    ]
+                except Exception as exc:  # cookies are best-effort
+                    log.debug("could not read cookies: %s", exc)
             finally:
                 browser.close()
 
@@ -114,4 +155,5 @@ class BoxScraper:
             if _is_preview_url(candidate):
                 download_url = candidate
                 break
-        return ScrapedFile(title=clean_title(raw_title), download_url=download_url)
+        return ScrapedFile(title=clean_title(raw_title), download_url=download_url,
+                           auth_headers=auth_headers, cookies=seen_cookies)
