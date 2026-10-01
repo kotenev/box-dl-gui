@@ -69,7 +69,7 @@ class TestWorker(unittest.TestCase):
         from box_dl.scraper import ScrapedFile
 
         class FakeScraper:
-            def __init__(self, *args: object, **kwargs: object) -> None:
+            def __init__(self, *args: object, **kwargs: object):
                 pass
 
             def fetch(self, url: str) -> ScrapedFile:

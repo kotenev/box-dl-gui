@@ -64,7 +64,7 @@ class BoxScraper:
         headless: bool = True,
         browser_channel: Optional[str] = None,
         navigation_timeout_ms: int = 45_000,
-    ) -> None:
+    ):
         self.wait_time = wait_time
         self.headless = headless
         self.browser_channel = browser_channel

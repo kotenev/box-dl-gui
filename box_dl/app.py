@@ -41,7 +41,7 @@ def open_in_file_manager(path: Union[Path, str]) -> None:
 
 
 class App(ctk.CTk):
-    def __init__(self) -> None:
+    def __init__(self):
         super().__init__()
         self.title("Box.com Downloader")
         self.geometry("660x640")
