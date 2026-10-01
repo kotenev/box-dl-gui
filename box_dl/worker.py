@@ -40,6 +40,7 @@ class DownloadJob:
     out_dir: Path = field(default_factory=load_last_dir)
     wait_time: float = 10.0
     browser_channel: Optional[str] = None
+    clean_watermark: bool = False
 
 
 def run_job(job: DownloadJob, events: queue.Queue, stop: threading.Event) -> None:
@@ -93,4 +94,29 @@ def run_job(job: DownloadJob, events: queue.Queue, stop: threading.Event) -> Non
             JobEvent(kind="file_done", message=f"{prefix} Saved {dest.name}",
                      done=index, total=total, path=str(dest))
         )
+        if job.clean_watermark:
+            events.put(JobEvent(kind="status",
+                                message=f"{prefix} Removing watermark background…"))
+            try:
+                from .clean import clean_file
+                _cleaned_dst, _clean_result = clean_file(
+                    dest, dest, overwrite=True)
+                events.put(JobEvent(
+                    kind="file_done",
+                    message=(f"{prefix} Watermark removed "
+                             f"({_clean_result.pages_cleaned}/"
+                             f"{_clean_result.pages_total} pages)"),
+                    done=index, total=total, path=str(dest)))
+            except ImportError:
+                events.put(JobEvent(
+                    kind="file_error",
+                    message=(f"{prefix} Watermark removal needs PyMuPDF: "
+                             "pip install pymupdf"),
+                    done=index, total=total))
+            except (ValueError, OSError) as exc:
+                log.warning("watermark removal failed for %s: %s", dest, exc)
+                events.put(JobEvent(
+                    kind="file_error",
+                    message=f"{prefix} Watermark removal failed: {exc}",
+                    done=index, total=total))
     events.put(JobEvent(kind="finished", message="Ready", done=total, total=total))

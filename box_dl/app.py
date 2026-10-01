@@ -78,6 +78,10 @@ class App(ctk.CTk):
         self._chrome_switch = ctk.CTkSwitch(
             opts, text="Use installed Chrome", variable=self._chrome_var)
         self._chrome_switch.pack(side="left", padx=16, pady=8)
+        self._clean_var = ctk.BooleanVar(value=False)
+        self._clean_switch = ctk.CTkSwitch(
+            opts, text="Remove watermark", variable=self._clean_var)
+        self._clean_switch.pack(side="left", padx=16, pady=8)
 
         # --- buttons row ---
         btns = ctk.CTkFrame(self)
@@ -150,6 +154,7 @@ class App(ctk.CTk):
             out_dir=out_dir,
             wait_time=wait_time,
             browser_channel="chrome" if self._chrome_var.get() else None,
+            clean_watermark=bool(self._clean_var.get()),
         )
         self._worker = threading.Thread(target=run_job,
                                         args=(job, self._events, self._stop),

@@ -32,6 +32,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Seconds to wait for the Box preview to load (default: 10)")
     parser.add_argument("--use-chrome", action="store_true",
                         help="Drive installed Google Chrome instead of bundled Chromium")
+    parser.add_argument("--clean", action="store_true",
+                        help="Remove watermark background from downloaded PDFs "
+                             "(needs pymupdf)")
     parser.add_argument("--open", action="store_true",
                         help="Open downloaded PDFs when finished")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")
@@ -57,6 +60,7 @@ def main(argv=None) -> int:
         out_dir=out_dir,
         wait_time=args.wait_time,
         browser_channel="chrome" if args.use_chrome else None,
+        clean_watermark=args.clean,
     )
     failures = 0
     saved: List[str] = []

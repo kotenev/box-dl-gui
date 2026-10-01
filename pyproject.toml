@@ -10,11 +10,13 @@ dependencies = [
   "httpx>=0.27",
   "platformdirs>=4",
   "playwright>=1.49",
+  "pymupdf>=1.24",
 ]
 
 [project.scripts]
 box-dl-gui = "box_dl.app:main"
 box-dl = "box_dl.cli:main"
+box-dl-clean = "box_dl.clean:main"
 
 [build-system]
 requires = ["setuptools>=61"]

@@ -6,7 +6,8 @@ Tkinter/Selenium files (`gui.py`, `gui.pyw`, `main.py`, `scraper.py`, `downloade
 
 ## Entrypoints
 - `app.py` → `box_dl/app.py:main` (`App`, CustomTkinter). Also `python -m box_dl`, or installed `box-dl-gui`.
-- `box_dl/cli.py:main` (`box-dl`): `URL [URL ...] [--out DIR] [--wait-time 10] [--use-chrome] [--open] [-v]`; exit 1 if any URL failed.
+- `box_dl/cli.py:main` (`box-dl`): `URL [URL ...] [--out DIR] [--wait-time 10] [--use-chrome] [--clean] [--open] [-v]`; exit 1 if any URL failed.
+- `box_dl/clean.py:clean_file/clean_bytes` (`box-dl-clean`): delete full-page watermark-background images (coverage ≥0.85, raster ≥400 px; one `delete_image` clears a shared xref document-wide). Needs `pymupdf`.
 - `box_dl/scraper.py:BoxScraper.fetch(url)`; `box_dl/worker.py:run_job(job, events, stop)`; `box_dl/downloader.py:download_file(url, dest)`; `box_dl/urls.py:is_box_url()`; `box_dl/store.py` (persistence, sanitize, `unique_path`).
 
 ## Setup

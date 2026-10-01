@@ -3,3 +3,5 @@ customtkinter>=5.2
 httpx>=0.27
 platformdirs>=4
 playwright>=1.49
+# Needed only for watermark-background removal (box-dl-clean / --clean).
+pymupdf>=1.24

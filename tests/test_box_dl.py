@@ -12,6 +12,75 @@ from box_dl.store import sanitize_filename, unique_path
 from box_dl.urls import is_box_url
 
 
+class TestClean(unittest.TestCase):
+    def _make_bg_pdf(self, with_bg: bool):
+        import pymupdf
+
+        doc = pymupdf.open()
+        page = doc.new_page(width=595, height=842)
+        if with_bg:
+            pix = pymupdf.Pixmap(pymupdf.csGRAY, pymupdf.IRect(0, 0, 595, 842), 0)
+            pix.clear_with(210)
+            page.insert_image(page.rect, pixmap=pix)
+        page.insert_text((72, 100), "Hello watermark test", fontsize=14)
+        raw = doc.tobytes(garbage=4, deflate=True)
+        doc.close()
+        return raw
+
+    def test_removes_full_page_background(self) -> None:
+        from box_dl.clean import clean_bytes, find_background_images
+        import pymupdf
+
+        raw = self._make_bg_pdf(with_bg=True)
+        doc = pymupdf.open(stream=raw, filetype="pdf")
+        self.assertEqual(len(find_background_images(doc[0])), 1)
+        doc.close()
+        out, result = clean_bytes(raw)
+        self.assertEqual(result.pages_total, 1)
+        self.assertEqual(result.pages_cleaned, 1)
+        self.assertLess(result.bytes_after, result.bytes_before)
+        doc = pymupdf.open(stream=out, filetype="pdf")
+        self.assertEqual(find_background_images(doc[0]), [])
+        self.assertIn("Hello watermark test", doc[0].get_text())
+        doc.close()
+
+    def test_leaves_small_figures_alone(self) -> None:
+        from box_dl.clean import clean_bytes
+        import pymupdf
+
+        doc = pymupdf.open()
+        page = doc.new_page(width=595, height=842)
+        pix = pymupdf.Pixmap(pymupdf.csGRAY, pymupdf.IRect(0, 0, 100, 100), 0)
+        pix.clear_with(210)
+        page.insert_image(pymupdf.Rect(72, 72, 172, 172), pixmap=pix)
+        page.insert_text((72, 250), "Small figure stays", fontsize=14)
+        raw = doc.tobytes()
+        doc.close()
+        out, result = clean_bytes(raw)
+        self.assertEqual(result.pages_cleaned, 0)
+        doc = pymupdf.open(stream=out, filetype="pdf")
+        self.assertEqual(len(doc[0].get_images(full=True)), 1)
+        doc.close()
+
+    def test_rejects_non_pdf(self) -> None:
+        from box_dl.clean import clean_bytes
+
+        with self.assertRaises(ValueError):
+            clean_bytes(b"definitely not a pdf")
+
+    def test_clean_file_roundtrip(self) -> None:
+        from box_dl.clean import clean_file
+
+        with TemporaryDirectory() as td:
+            src = Path(td) / "wm.pdf"
+            src.write_bytes(self._make_bg_pdf(with_bg=True))
+            dst, result = clean_file(src)
+            self.assertTrue(dst.is_file())
+            self.assertEqual(result.pages_cleaned, 1)
+            with self.assertRaises(FileNotFoundError):
+                clean_file(Path(td) / "missing.pdf")
+
+
 class TestUrls(unittest.TestCase):
     def test_valid(self) -> None:
         self.assertTrue(is_box_url("https://acme.box.com/s/abc123"))

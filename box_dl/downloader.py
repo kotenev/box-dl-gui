@@ -5,13 +5,16 @@ from typing import Dict, List, Optional, Union
 
 import httpx
 
+_HeaderDict = Dict[str, str]
+_CookieList = List[Dict[str, str]]
+
 
 def download_file(
     url: str,
     dest: Union[Path, str],
     timeout: float = 60.0,
-    headers: Optional[Dict[str, str]] = None,
-    cookies: Optional[List[Dict[str, str]]] = None,
+    headers: Optional[_HeaderDict] = None,
+    cookies: Optional[_CookieList] = None,
 ) -> Path:
     """Stream ``url`` to ``dest`` (creating parent dirs). Returns the path.
 

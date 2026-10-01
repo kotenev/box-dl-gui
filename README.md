@@ -23,10 +23,28 @@ GUI: paste box.com links (space or newline separated) → **Download**.
 Per-file progress, cancellable, log at the bottom; save folder is remembered.
 
 ```bash
-python -m box_dl.cli URL [URL ...] [--out ~/Downloads] [--wait-time 10] [--use-chrome] [--open] [-v]
+python -m box_dl.cli URL [URL ...] [--out ~/Downloads] [--wait-time 10] [--use-chrome] [--clean] [--open] [-v]
 ```
 
-Installed (`pip install -e .`) shortcuts: `box-dl-gui` (GUI), `box-dl` (CLI).
+Installed (`pip install -e .`) shortcuts: `box-dl-gui` (GUI), `box-dl` (CLI),
+`box-dl-clean` (watermark removal).
+
+## Watermark removal
+
+Box preview PDFs bake a diagonal watermark pattern into one full-page raster
+image behind the real content. Strip it without touching text or figures:
+
+```bash
+python -m box_dl.clean doc.pdf                  # -> doc_clean.pdf
+python -m box_dl.clean a.pdf b.pdf --out clean/ # several files
+python -m box_dl.clean doc.pdf --in-place        # overwrite
+```
+
+Or tick **"Remove watermark"** in the GUI / pass `--clean` to `box-dl` to
+clean right after download (in place, logged per file). Heuristic: an image
+covering ≥85% of a page with a ≥400 px raster side counts as background
+(`--min-coverage`, `--min-size` tune it); `--max-pages-share 0.9` protects
+images reused on >90% of pages (template chrome, not watermark).
 
 ## Layout
 
@@ -38,6 +56,8 @@ Installed (`pip install -e .`) shortcuts: `box-dl-gui` (GUI), `box-dl` (CLI).
   with a `window.performance.getEntries()` fallback.
 - `box_dl/worker.py` — background `run_job()` → Tk-safe `JobEvent` queue.
 - `box_dl/downloader.py` — streaming `download_file()` via httpx.
+- `box_dl/clean.py` — `clean_file()` / `clean_bytes()` / `box-dl-clean`: delete
+  full-page watermark-background images, keep text and figures.
 - `box_dl/store.py` — save-dir persistence, filename sanitising,
   collision-free `name(1).pdf` paths.
 - `box_dl/urls.py` — `is_box_url()` validation.
